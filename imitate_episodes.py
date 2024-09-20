@@ -11,7 +11,7 @@ from einops import rearrange
 from tqdm import tqdm
 
 from constants import DT, PUPPET_GRIPPER_JOINT_OPEN
-from policy import ACTPolicy, CNNMLPPolicy
+from policy import ACTPolicy, CNNMLPPolicy, PiPolicy
 from sim_env import BOX_POSE
 from utils import (  # robot functions  # helper functions
     compute_dict_mean,
@@ -87,6 +87,14 @@ def main(args):
             "num_queries": 1,
             "camera_names": camera_names,
         }
+    elif policy_class == _POLICY_CLASS_PI:
+        policy_config = {
+            "lr": args["lr"],
+            "lr_backbone": lr_backbone,
+            "backbone": backbone,
+            "num_queries": 1,
+            "camera_names": camera_names,
+        }
     else:
         raise NotImplementedError
 
@@ -98,6 +106,8 @@ def main(args):
         "lr": args["lr"],
         "policy_class": policy_class,
         "onscreen_render": onscreen_render,
+        "render_height": args["render_height"],
+        "render_width": args["render_width"],
         "policy_config": policy_config,
         "task_name": task_name,
         "seed": args["seed"],
@@ -143,6 +153,8 @@ def make_policy(policy_class, policy_config):
         policy = ACTPolicy(policy_config)
     elif policy_class == _POLICY_CLASS_CNNMLP:
         policy = CNNMLPPolicy(policy_config)
+    elif policy_class == _POLICY_CLASS_PI:
+        policy = PiPolicy()
     else:
         raise NotImplementedError
     return policy
@@ -158,13 +170,14 @@ def make_optimizer(policy_class, policy):
     return optimizer
 
 
-def get_image(ts, camera_names):
+def get_image(ts, camera_names, use_gpu: bool = True):
     curr_images = []
     for cam_name in camera_names:
         curr_image = rearrange(ts.observation["images"][cam_name], "h w c -> c h w")
         curr_images.append(curr_image)
-    curr_image = np.stack(curr_images, axis=0)
-    curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
+    curr_image = np.stack(curr_images, axis=0) / 255.0
+    if use_gpu:
+        curr_image = torch.from_numpy(curr_image).float().cuda().unsqueeze(0)
     return curr_image
 
 
@@ -174,6 +187,8 @@ def eval_bc(config, ckpt_name, save_episode=True):
     real_robot = config["real_robot"]
     policy_class = config["policy_class"]
     onscreen_render = config["onscreen_render"]
+    render_height = config["render_height"]
+    render_width = config["render_width"]
     policy_config = config["policy_config"]
     max_timesteps = config["episode_len"]
     task_name = config["task_name"]
@@ -182,15 +197,14 @@ def eval_bc(config, ckpt_name, save_episode=True):
     # load policy
     ckpt_path = os.path.join(ckpt_dir, ckpt_name)
     policy = make_policy(policy_class, policy_config)
-    loading_status = policy.load_state_dict(torch.load(ckpt_path))
-    print(loading_status)
-    policy.cuda()
-    policy.eval()
-    print(f"Loaded: {ckpt_path}")
-
-    policy_func = _base_policy_func(config, policy)
     if policy_class != _POLICY_CLASS_PI:
-        policy_func = _normalize_to_dataset_stats_wrapper(policy_func, config)
+        loading_status = policy.load_state_dict(torch.load(ckpt_path))
+        print(loading_status)
+        policy.cuda()
+        policy.eval()
+        print(f"Loaded: {ckpt_path}")
+
+    policy_func = _make_policy_func(config, policy)
 
     # load environment
     if real_robot:
@@ -202,7 +216,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
     else:
         from sim_env import make_sim_env
 
-        env = make_sim_env(task_name)
+        env = make_sim_env(task_name, render_height, render_width)
         env_max_reward = env.task.max_reward
 
     max_timesteps = int(max_timesteps * 1)  # may increase for real-world tasks
@@ -224,7 +238,9 @@ def eval_bc(config, ckpt_name, save_episode=True):
         if onscreen_render:
             ax = plt.subplot()
             plt_img = ax.imshow(
-                env._physics.render(height=480, width=640, camera_id=onscreen_cam)
+                env._physics.render(
+                    height=render_height, width=render_width, camera_id=onscreen_cam
+                )
             )
             plt.ion()
 
@@ -238,7 +254,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
                 ### update onscreen render and wait for DT
                 if onscreen_render:
                     image = env._physics.render(
-                        height=480, width=640, camera_id=onscreen_cam
+                        height=render_height, width=render_width, camera_id=onscreen_cam
                     )
                     plt_img.set_data(image)
                     plt.pause(DT)
@@ -249,16 +265,13 @@ def eval_bc(config, ckpt_name, save_episode=True):
                     image_list.append(obs["images"])
                 else:
                     image_list.append({"main": obs["image"]})
-                curr_image = get_image(ts, config["camera_names"])
+                curr_image = get_image(
+                    ts, config["camera_names"], use_gpu=policy_class != _POLICY_CLASS_PI
+                )
                 qpos_numpy = np.array(obs["qpos"])
 
                 ### query policy
-                target_qpos = policy_func(
-                    policy=policy,
-                    qpos=qpos_numpy,
-                    curr_image=curr_image,
-                    t=t,
-                )
+                target_qpos = policy_func(qpos=qpos_numpy, curr_image=curr_image, t=t)
 
                 ### step the environment
                 ts = env.step(target_qpos)
@@ -314,7 +327,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
     return success_rate, avg_return
 
 
-def _base_policy_func(config, policy):
+def _make_policy_func(config, policy):
     if config["policy_class"] == _POLICY_CLASS_ACT:
         max_timesteps = config["episode_len"]
         temporal_agg = config["temporal_agg"]
@@ -349,12 +362,21 @@ def _base_policy_func(config, policy):
                 raw_action = all_actions[:, t % query_frequency]
             return raw_action.squeeze(0).cpu().numpy()
 
+        policy_func = _normalize_to_dataset_stats_wrapper(policy_func, config)
+
     elif config["policy_class"] == _POLICY_CLASS_CNNMLP:
 
         def policy_func(qpos, curr_image, t):
             qpos = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
             raw_action = policy(qpos, curr_image)
             return raw_action.squeeze(0).cpu().numpy()
+
+        policy_func = _normalize_to_dataset_stats_wrapper(policy_func, config)
+    elif config["policy_class"] == _POLICY_CLASS_PI:
+
+        def policy_func(qpos, curr_image, t):
+            raw_action = policy(qpos, curr_image)
+            return raw_action
     else:
         raise NotImplementedError
 
@@ -502,6 +524,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--onscreen_render", action="store_true")
+    parser.add_argument("--render_height", action="store", type=int, default=480)
+    parser.add_argument("--render_width", action="store", type=int, default=640)
     parser.add_argument(
         "--ckpt_dir", action="store", type=str, help="ckpt_dir", required=True
     )
