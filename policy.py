@@ -107,18 +107,30 @@ class PiPolicy:
             "image": {
                 "base_0_rgb": simplejpeg.encode_jpeg(converted_image),
                 "base_0_rgb_mask": np.array(True),
+                # TODO: We don't have these images yet.
+                "left_wrist_0_rgb": simplejpeg.encode_jpeg(converted_image),
+                "left_wrist_0_rgb_mask": np.array(True),
+                "right_wrist_0_rgb": simplejpeg.encode_jpeg(converted_image),
+                "right_wrist_0_rgb_mask": np.array(True),
             },
             "state": qpos,
+            "raw_text": "pick up cube",
         }
 
-    def _post_request(self, request: dict):
+    def _post_request(self, request: dict) -> np.ndarray:
         response = requests.post(self._uri, data=pickle.dumps(request))
         if response.status_code != 200:
             raise Exception(response.text)
         return pickle.loads(response.content)
 
-    def _pi_response_to_aloha(self, response):
-        return response
+    def _pi_response_to_aloha(self, response: np.ndarray) -> np.ndarray:
+        # response is (50,14) of type float32
+        # 0-5: left arm joint angles
+        # 6-11: right arm joint angles
+        # 12: left arm gripper
+        # 13: right arm gripper
+        aloha_action = response[:, [0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
+        return aloha_action[0]
 
 
 def kl_divergence(mu, logvar):
