@@ -1,0 +1,42 @@
+services:
+  trossen_device:
+    image: trossen_device
+    depends_on:
+      - $TROSSEN_ARM_NAME
+      - ros_master
+    build:
+      context: $MONOPI_ROOT
+      dockerfile: monopi/robot/device/gripper_arm/trossen/trossen_device.Dockerfile
+    tty: true
+    network_mode: host
+    volumes:
+      - $MONOPI_ROOT:/home/monopi
+    environment:
+      - PI_ROBOT_ID=$PI_ROBOT_ID
+      - PI_DEVICE_NAME=$PI_DEVICE_NAME
+      - PI_DEVICE_PORT=$PI_DEVICE_PORT
+      - PI_DEVICE_EXTRA_ARGS=$PI_DEVICE_EXTRA_ARGS
+
+  trossen_arm:
+    image: trossen_arm
+    depends_on:
+      - ros_master
+    build:
+      context: $MONOPI_ROOT
+      dockerfile: monopi/robot/device/gripper_arm/trossen/arm/trossen_arm.Dockerfile
+    tty: true
+    network_mode: host
+    volumes:
+      - /dev:/dev
+    privileged: true
+    environment:
+      - ARM_ROLE=$TROSSEN_ARM_ROLE
+      - ARM_SIDE=$TROSSEN_ARM_SIDE
+      - ARM_SERIAL_ID=$TROSSEN_ARM_SERIAL_ID
+
+  ros_master:
+    image: ros:noetic-robot
+    network_mode: host
+    privileged: true
+    command:
+      - roscore

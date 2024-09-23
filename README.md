@@ -87,3 +87,10 @@ You can also add ``--onscreen_render`` to see real-time rendering during evaluat
 For real-world data where things can be harder to model, train for at least 5000 epochs or 3-4 times the length after the loss has plateaued.
 Please refer to [tuning tips](https://docs.google.com/document/d/1FVIZfoALXg_ZkYKaYVh-qOlaXveq5CtvJHXkY25eYhs/edit?usp=sharing) for more info.
 
+# Jimmy's notes
+
+Run with sim:
+
+```
+python3 imitate_episodes.py --task_name sim_transfer_cube_scripted --ckpt_dir /home/jimmy/ckpts --eval --policy_class PI --kl_weight 10 --chunk_size 100 --hidden_dim 512 --batch_size 8 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --render_height 256 --render_width 320
+```
