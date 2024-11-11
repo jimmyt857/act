@@ -118,7 +118,7 @@ class PiPolicy:
         }
 
     def _post_request(self, request: dict) -> np.ndarray:
-        response = requests.post(self._uri, data=pickle.dumps(request))
+        response = requests.post(f"{self._uri}/infer", data=pickle.dumps(request))
         if response.status_code != 200:
             raise Exception(response.text)
         return pickle.loads(response.content)
