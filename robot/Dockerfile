@@ -1,5 +1,5 @@
-# docker build . -t act_trossen_arm -f robot/Dockerfile
-# docker run --rm -it --network=host -v /dev:/dev --privileged act_trossen_arm /bin/bash
+# docker build . -t aloha_act -f robot/Dockerfile
+# docker run --rm -it --network=host -v /dev:/dev --privileged aloha_act /bin/bash
 
 FROM ros:noetic-robot@sha256:0e12e4db836e78c74c4b04c6d16f185d9a18d2b13cf5580747efa075eb6dc6e0
 SHELL ["/bin/bash", "-c"]
@@ -19,6 +19,10 @@ RUN apt-get update && \
     ros-noetic-cv-bridge \
     ros-noetic-usb-cam \
     keyboard-configuration
+
+# Required for running the mujoco simulator.
+RUN sudo apt-get install -y libglfw3-dev libgles2-mesa-dev
+ENV MUJOCO_GL=egl
 
 WORKDIR /root
 RUN curl 'https://raw.githubusercontent.com/Interbotix/interbotix_ros_manipulators/main/interbotix_ros_xsarms/install/amd64/xsarm_amd64_install.sh' > xsarm_amd64_install.sh
@@ -51,7 +55,8 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 RUN conda env create -n aloha -f /root/act/conda_env.yaml python=3.8.10
 RUN source /opt/conda/bin/activate aloha && conda install -y mkl==2024.0 && pip install modern_robotics
 ENV PYTHONPATH=$PYTHONPATH:/root/aloha/aloha_scripts:/root/aloha:/root/act/detr
+WORKDIR /root/act
 
 CMD ["/bin/bash", "-c", \
     "source /opt/ros/noetic/setup.sh && source /root/interbotix_ws/devel/setup.sh && source /opt/conda/bin/activate aloha && \
-    python /root/act/imitate_episodes.py --task_name aloha_wear_shoe --ckpt_dir /ckpts --eval --policy_class PI --kl_weight 10 --chunk_size 100 --hidden_dim 512 --batch_size 8 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --render_height 256 --render_width 320"]
+    python imitate_episodes.py --task_name aloha_wear_shoe --ckpt_dir /ckpts --eval --policy_class PI --kl_weight 10 --chunk_size 100 --hidden_dim 512 --batch_size 8 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --render_height 256 --render_width 320"]

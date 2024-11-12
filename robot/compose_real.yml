@@ -1,13 +1,19 @@
+# Run with:
+# docker compose -f robot/compose_real.yml up
 services:
-  act_trossen_arm:
-    image: act_trossen_arm
+  aloha_act:
+    image: aloha_act
     depends_on:
       - ros_master
     build:
       context: ..
       dockerfile: robot/Dockerfile
+    init: true
     tty: true
     network_mode: host
+    privileged: true
+    volumes:
+      - /dev:/dev
     environment:
       - ARM_ROLE=puppet
 
