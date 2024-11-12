@@ -10,9 +10,9 @@ services:
     tty: true
     network_mode: host
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro # X11 for non-headless mode
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
     environment:
-      - DISPLAY=$DISPLAY # Needed for non-headless mode
+      - DISPLAY=$DISPLAY
     command:
       - /bin/bash
       - -c
