@@ -1,6 +1,6 @@
 services:
-  trossen_device:
-    image: trossen_device
+  act_trossen_arm:
+    image: act_trossen_arm
     depends_on:
       - ros_master
     build:

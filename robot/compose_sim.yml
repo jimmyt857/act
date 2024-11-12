@@ -1,0 +1,14 @@
+services:
+  act_trossen_arm:
+    image: act_trossen_arm
+    build:
+      context: ..
+      dockerfile: robot/Dockerfile
+    tty: true
+    network_mode: host
+    environment:
+      - ARM_ROLE=puppet
+    command:
+      - /bin/bash
+      - -c
+      - python imitate_episodes.py --task_name sim_transfer_cube_scripted --ckpt_dir /home/jimmy/ckpts --eval --policy_class PI --kl_weight 10 --chunk_size 100 --hidden_dim 512 --batch_size 8 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --render_height 256 --render_width 320
