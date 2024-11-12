@@ -57,6 +57,12 @@ RUN source /opt/conda/bin/activate aloha && conda install -y mkl==2024.0 && pip 
 ENV PYTHONPATH=$PYTHONPATH:/root/aloha/aloha_scripts:/root/aloha:/root/act/detr
 WORKDIR /root/act
 
-CMD ["/bin/bash", "-c", \
-    "source /opt/ros/noetic/setup.sh && source /root/interbotix_ws/devel/setup.sh && source /opt/conda/bin/activate aloha && \
-    python imitate_episodes.py --task_name aloha_wear_shoe --ckpt_dir /ckpts --eval --policy_class PI --kl_weight 10 --chunk_size 100 --hidden_dim 512 --batch_size 8 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --render_height 256 --render_width 320"]
+# Create an entrypoint script to run the setup commands, followed by the command passed in.
+RUN cat <<'EOF' > /usr/local/bin/entrypoint.sh
+#!/bin/bash
+source /opt/ros/noetic/setup.sh && source /root/interbotix_ws/devel/setup.sh && source /opt/conda/bin/activate aloha && "$@"
+EOF
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]
