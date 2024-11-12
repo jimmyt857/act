@@ -44,7 +44,7 @@ RUN git clone https://github.com/tonyzhaozh/aloha.git && \
 
 RUN git clone https://github.com/jimmyt857/act.git && \
     cd act && \
-    git checkout f07d0ec38bab32df8169638c1fab86a8ea7915c6
+    git checkout f3db1e2ccc1beeca549e8d78421dfd750cc43fa8
 
 # Install miniconda
 ENV CONDA_DIR=/opt/conda
