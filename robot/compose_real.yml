@@ -64,7 +64,7 @@ services:
       - roslaunch
       - --wait
       - aloha
-      - 4arms_teleop.launch
+      - ros_nodes.launch
 
   ros_master:
     image: ros:noetic-robot

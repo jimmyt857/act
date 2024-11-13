@@ -35,6 +35,7 @@ RUN cd /root/interbotix_ws/src && \
     git checkout 06369f03cd8e0a47e16d3a90167853fd33af7557 && \
     sed -i 's/<put your data dir here>/\/data/g' ./aloha_scripts/constants.py
 
+COPY ./robot/ros_nodes.launch /root/interbotix_ws/src/aloha/launch/ros_nodes.launch
 COPY ./robot/master_config.yaml /root/interbotix_ws/src/openpi/master_config.yaml
 COPY ./robot/puppet_config.yaml /root/interbotix_ws/src/openpi/puppet_config.yaml
 COPY ./robot/arm.py /root/interbotix_ws/src/interbotix_ros_toolboxes/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
