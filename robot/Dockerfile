@@ -53,7 +53,7 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 
 RUN conda env create -n aloha -f /root/act/conda_env.yaml python=3.8.10
 RUN source /opt/conda/bin/activate aloha && conda install -y mkl==2024.0 && pip install modern_robotics
-ENV PYTHONPATH=$PYTHONPATH:/root/aloha/aloha_scripts:/root/aloha:/root/act/detr
+ENV PYTHONPATH=$PYTHONPATH:/root/interbotix_ws/src/aloha/aloha_scripts:/root/interbotix_ws/src/aloha:/root/act/detr
 WORKDIR /root/act
 
 # Create an entrypoint script to run the setup commands, followed by the command passed in.
