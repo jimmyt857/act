@@ -4,6 +4,7 @@ services:
   aloha_act:
     image: aloha_act
     depends_on:
+      - aloha_ros_nodes
       - ros_master
     build:
       context: ..
@@ -13,16 +14,15 @@ services:
     network_mode: host
     privileged: true
     volumes:
-      - /dev:/dev
-    environment:
-      - ARM_ROLE=puppet
+      - ./data:/data
+      - ./ckpts:/ckpts
     command:
       - python
       - imitate_episodes.py
       - --task_name
       - aloha_wear_shoe
       - --ckpt_dir
-      - /home/jimmy/ckpts
+      - /ckpts
       - --eval
       - --policy_class
       - PI
@@ -46,6 +46,25 @@ services:
       - "256"
       - --render_width
       - "320"
+
+  aloha_ros_nodes:
+    image: aloha_act
+    depends_on:
+      - ros_master
+    build:
+      context: ..
+      dockerfile: robot/Dockerfile
+    init: true
+    tty: true
+    network_mode: host
+    privileged: true
+    volumes:
+      - /dev:/dev
+    command:
+      - roslaunch
+      - --wait
+      - aloha
+      - 4arms_teleop.launch
 
   ros_master:
     image: ros:noetic-robot

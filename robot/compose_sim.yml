@@ -11,6 +11,8 @@ services:
     network_mode: host
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ./data:/data
+      - ./ckpts:/ckpts
     environment:
       - DISPLAY=$DISPLAY
     command:

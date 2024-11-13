@@ -29,18 +29,16 @@ RUN curl 'https://raw.githubusercontent.com/Interbotix/interbotix_ros_manipulato
 RUN chmod +x xsarm_amd64_install.sh
 RUN export DEBIAN_FRONTEND=noninteractive && export TZ='America/Los_Angeles' && ./xsarm_amd64_install.sh -d noetic -n
 
-# TODO: is this needed?
-# RUN cd /root/interbotix_ws/src && git clone https://github.com/tonyzhaozh/aloha.git
+RUN cd /root/interbotix_ws/src && \
+    git clone https://github.com/tonyzhaozh/aloha.git && \
+    cd aloha && \
+    git checkout 06369f03cd8e0a47e16d3a90167853fd33af7557 && \
+    sed -i 's/<put your data dir here>/\/data/g' ./aloha_scripts/constants.py
 
 COPY ./robot/master_config.yaml /root/interbotix_ws/src/openpi/master_config.yaml
 COPY ./robot/puppet_config.yaml /root/interbotix_ws/src/openpi/puppet_config.yaml
 COPY ./robot/arm.py /root/interbotix_ws/src/interbotix_ros_toolboxes/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
 RUN cd /root/interbotix_ws && source /opt/ros/noetic/setup.sh && source /root/interbotix_ws/devel/setup.sh && catkin_make
-
-RUN git clone https://github.com/tonyzhaozh/aloha.git && \
-    cd aloha && \
-    git checkout 06369f03cd8e0a47e16d3a90167853fd33af7557 && \
-    sed -i 's/<put your data dir here>/\/data/g' ./aloha_scripts/constants.py
 
 RUN git clone https://github.com/jimmyt857/act.git && \
     cd act && \
