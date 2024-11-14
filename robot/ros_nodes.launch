@@ -83,7 +83,7 @@
     <param name="autoexposure" value="true"/>
   </node>
 
-  <node name="usb_cam_right_wrist" pkg="usb_cam" type="usb_cam_node" output="screen" >
+  <!--<node name="usb_cam_right_wrist" pkg="usb_cam" type="usb_cam_node" output="screen" >
     <param name="video_device" value="/dev/CAM_RIGHT_WRIST" />
     <param name="framerate" value="60" />
     <param name="image_width" value="640" />
@@ -94,5 +94,21 @@
     <param name="autofocus" value="false"/>
     <param name="focus" value="40"/>
     <param name="autoexposure" value="true"/>
-  </node>
+  </node>-->
+
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="camera" value="cam_right_wrist"/>
+    <arg name="serial_no" value="TODO"/>
+    <arg name="enable_depth" value="false"/>
+    <arg name="enable_fisheye" value="false"/>
+    <arg name="enable_confidence" value="false"/>
+    <arg name="color_width" value="640"/>
+    <arg name="color_height" value="480"/>
+    <arg name="color_fps" value="60"/>
+  </include>
+
+  <remap from="/cam_left_wrist/image_raw" to="/usb_cam_left_wrist/image_raw"/>
+  <remap from="/cam_right_wrist/image_raw" to="/usb_cam_right_wrist/image_raw"/>
+  <remap from="/cam_low/image_raw" to="/usb_cam_low/image_raw"/>
+  <remap from="/cam_high/image_raw" to="/usb_cam_high/image_raw"/>
 </launch>

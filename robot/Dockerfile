@@ -18,6 +18,7 @@ RUN apt-get update && \
     openssh-client \
     ros-noetic-cv-bridge \
     ros-noetic-usb-cam \
+    ros-noetic-realsense2-camera \
     keyboard-configuration
 
 # Required for running the mujoco simulator.
@@ -35,7 +36,6 @@ RUN cd /root/interbotix_ws/src && \
     git checkout 06369f03cd8e0a47e16d3a90167853fd33af7557 && \
     sed -i 's/<put your data dir here>/\/data/g' ./aloha_scripts/constants.py
 
-COPY ./robot/ros_nodes.launch /root/interbotix_ws/src/aloha/launch/ros_nodes.launch
 COPY ./robot/master_config.yaml /root/interbotix_ws/src/openpi/master_config.yaml
 COPY ./robot/puppet_config.yaml /root/interbotix_ws/src/openpi/puppet_config.yaml
 COPY ./robot/arm.py /root/interbotix_ws/src/interbotix_ros_toolboxes/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
@@ -55,6 +55,8 @@ RUN conda env create -n aloha -f /root/act/conda_env.yaml python=3.8.10
 RUN source /opt/conda/bin/activate aloha && conda install -y mkl==2024.0 && pip install modern_robotics
 ENV PYTHONPATH=$PYTHONPATH:/root/interbotix_ws/src/aloha/aloha_scripts:/root/interbotix_ws/src/aloha:/root/act/detr
 WORKDIR /root/act
+
+COPY ./robot/ros_nodes.launch /root/interbotix_ws/src/aloha/launch/ros_nodes.launch
 
 # Create an entrypoint script to run the setup commands, followed by the command passed in.
 RUN cat <<'EOF' > /usr/local/bin/entrypoint.sh
