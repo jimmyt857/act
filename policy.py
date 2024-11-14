@@ -1,14 +1,14 @@
 import pickle
 import time
 
+from detr.main import build_ACT_model_and_optimizer
+from detr.main import build_CNNMLP_model_and_optimizer
 import IPython
 import numpy as np
 import requests
 import torch.nn as nn
-import torchvision.transforms as transforms
 from torch.nn import functional as F
-
-from detr.main import build_ACT_model_and_optimizer, build_CNNMLP_model_and_optimizer
+import torchvision.transforms as transforms
 
 e = IPython.embed
 
@@ -24,17 +24,13 @@ class ACTPolicy(nn.Module):
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         image = normalize(image)
         if actions is not None:  # training time
             actions = actions[:, : self.model.num_queries]
             is_pad = is_pad[:, : self.model.num_queries]
 
-            a_hat, is_pad_hat, (mu, logvar) = self.model(
-                qpos, image, env_state, actions, is_pad
-            )
+            a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, image, env_state, actions, is_pad)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             loss_dict = dict()
             all_l1 = F.l1_loss(actions, a_hat, reduction="none")
@@ -43,11 +39,9 @@ class ACTPolicy(nn.Module):
             loss_dict["kl"] = total_kld[0]
             loss_dict["loss"] = loss_dict["l1"] + loss_dict["kl"] * self.kl_weight
             return loss_dict
-        else:  # inference time
-            a_hat, _, (_, _) = self.model(
-                qpos, image, env_state
-            )  # no action, sample from prior
-            return a_hat
+        # inference time
+        a_hat, _, (_, _) = self.model(qpos, image, env_state)  # no action, sample from prior
+        return a_hat
 
     def configure_optimizers(self):
         return self.optimizer
@@ -62,9 +56,7 @@ class CNNMLPPolicy(nn.Module):
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None  # TODO
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         image = normalize(image)
         if actions is not None:  # training time
             actions = actions[:, 0]
@@ -74,9 +66,9 @@ class CNNMLPPolicy(nn.Module):
             loss_dict["mse"] = mse
             loss_dict["loss"] = loss_dict["mse"]
             return loss_dict
-        else:  # inference time
-            a_hat = self.model(qpos, image, env_state)  # no action, sample from prior
-            return a_hat
+        # inference time
+        a_hat = self.model(qpos, image, env_state)  # no action, sample from prior
+        return a_hat
 
     def configure_optimizers(self):
         return self.optimizer
@@ -137,14 +129,14 @@ class PiPolicy:
         return pickle.loads(response.content)
 
     def _pi_response_to_aloha(self, response: dict[str, np.ndarray]) -> np.ndarray:
-        # response['action/qpos'] is (50,14) of type float32
+        # response['action/qpos'] is (14,) of type float32
         # 0-5: left arm joint angles
         # 6-11: right arm joint angles
         # 12: left arm gripper
         # 13: right arm gripper
         qpos = response["action/qpos"]
-        aloha_action = qpos[:, [0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
-        return aloha_action[0]
+        aloha_action = qpos[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]
+        return aloha_action
 
 
 def kl_divergence(mu, logvar):
