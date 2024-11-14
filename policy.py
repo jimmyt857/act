@@ -1,9 +1,9 @@
 import pickle
+import time
 
 import IPython
 import numpy as np
 import requests
-import simplejpeg
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.nn import functional as F
@@ -85,6 +85,16 @@ class CNNMLPPolicy(nn.Module):
 class PiPolicy:
     def __init__(self, host: str = "0.0.0.0", port: int = 8000) -> None:
         self._uri = f"http://{host}:{port}"
+        self._wait_for_server()
+
+    def _wait_for_server(self) -> None:
+        print(f"Waiting for server at {self._uri}...")
+        while True:
+            try:
+                return requests.head(self._uri)
+            except requests.exceptions.ConnectionError:
+                print("Still waiting for server...")
+                time.sleep(5)
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         request = self._aloha_to_pi_request(qpos, image)
@@ -104,32 +114,36 @@ class PiPolicy:
         converted_image = np.transpose(image[0] * 255, (1, 2, 0)).astype(np.uint8)
 
         return {
-            "image": {
-                "base_0_rgb": simplejpeg.encode_jpeg(converted_image),
-                "base_0_rgb_mask": np.array(True),
-                # TODO: We don't have these images yet.
-                "left_wrist_0_rgb": simplejpeg.encode_jpeg(converted_image),
-                "left_wrist_0_rgb_mask": np.array(True),
-                "right_wrist_0_rgb": simplejpeg.encode_jpeg(converted_image),
-                "right_wrist_0_rgb_mask": np.array(True),
+            "observation": {
+                "image": {
+                    "cam_low": converted_image,
+                    "cam_low_mask": np.array(True),
+                    "cam_high": converted_image,
+                    "cam_high_mask": np.array(True),
+                    "cam_left_wrist": converted_image,
+                    "cam_left_wrist_mask": np.array(True),
+                    "cam_right_wrist": converted_image,
+                    "cam_right_wrist_mask": np.array(True),
+                },
+                "qpos": qpos,
+                "raw_text": "pick up cube",
             },
-            "state": qpos,
-            "raw_text": "pick up cube",
         }
 
-    def _post_request(self, request: dict) -> np.ndarray:
+    def _post_request(self, request: dict) -> dict[str, np.ndarray]:
         response = requests.post(f"{self._uri}/infer", data=pickle.dumps(request))
         if response.status_code != 200:
             raise Exception(response.text)
         return pickle.loads(response.content)
 
-    def _pi_response_to_aloha(self, response: np.ndarray) -> np.ndarray:
-        # response is (50,14) of type float32
+    def _pi_response_to_aloha(self, response: dict[str, np.ndarray]) -> np.ndarray:
+        # response['action/qpos'] is (50,14) of type float32
         # 0-5: left arm joint angles
         # 6-11: right arm joint angles
         # 12: left arm gripper
         # 13: right arm gripper
-        aloha_action = response[:, [0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
+        qpos = response["action/qpos"]
+        aloha_action = qpos[:, [0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
         return aloha_action[0]
 
 

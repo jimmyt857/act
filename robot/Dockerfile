@@ -41,22 +41,28 @@ COPY ./robot/puppet_config.yaml /root/interbotix_ws/src/openpi/puppet_config.yam
 COPY ./robot/arm.py /root/interbotix_ws/src/interbotix_ros_toolboxes/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
 RUN cd /root/interbotix_ws && source /opt/ros/noetic/setup.sh && source /root/interbotix_ws/devel/setup.sh && catkin_make
 
-RUN git clone https://github.com/jimmyt857/act.git && \
-    cd act && \
-    git checkout f3db1e2ccc1beeca549e8d78421dfd750cc43fa8
-
 # Install miniconda
 ENV CONDA_DIR=/opt/conda
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p $CONDA_DIR
 ENV PATH=$CONDA_DIR/bin:$PATH
 
+# RUN git clone https://github.com/jimmyt857/act.git && \
+#     cd act && \
+#     git checkout f3db1e2ccc1beeca549e8d78421dfd750cc43fa8
+
+# Comment out the `git clone act.git` above and uncomment this for local development.
+COPY ./conda_env.yaml /root/act/conda_env.yaml
+
 RUN conda env create -n aloha -f /root/act/conda_env.yaml python=3.8.10
 RUN source /opt/conda/bin/activate aloha && conda install -y mkl==2024.0 && pip install modern_robotics
-ENV PYTHONPATH=$PYTHONPATH:/root/interbotix_ws/src/aloha/aloha_scripts:/root/interbotix_ws/src/aloha:/root/act/detr
-WORKDIR /root/act
+
+# Uncomment this for local development.
+COPY . /root/act
 
 COPY ./robot/ros_nodes.launch /root/interbotix_ws/src/aloha/launch/ros_nodes.launch
+ENV PYTHONPATH=$PYTHONPATH:/root/interbotix_ws/src/aloha/aloha_scripts:/root/interbotix_ws/src/aloha:/root/act/detr
+WORKDIR /root/act
 
 # Create an entrypoint script to run the setup commands, followed by the command passed in.
 RUN cat <<'EOF' > /usr/local/bin/entrypoint.sh
