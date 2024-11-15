@@ -101,25 +101,31 @@ class PiPolicy:
         # 13: right arm gripper
         #
         # image is [cam_idx, channel, height, width] with values in [0, 1] of type float
+        # With real robot, cam_idx order is [cam_high, cam_low, cam_left_wrist, cam_right_wrist]
+        # With sim, cam_idx order is [cam_high].
 
-        # Convert to [height, width, channel]
-        converted_image = np.transpose(image[0] * 255, (1, 2, 0)).astype(np.uint8)
-
-        return {
+        obs = {
             "observation": {
-                "image": {
-                    "cam_low": converted_image,
-                    "cam_low_mask": np.array(True),
-                    "cam_high": converted_image,
-                    "cam_high_mask": np.array(True),
-                    "cam_left_wrist": converted_image,
-                    "cam_left_wrist_mask": np.array(True),
-                    "cam_right_wrist": converted_image,
-                    "cam_right_wrist_mask": np.array(True),
-                },
                 "qpos": qpos,
+                "image": {},
             },
         }
+
+        def add_image(cam_idx: int, key: str) -> None:
+            if cam_idx >= image.shape[0]:
+                return
+
+            # Convert to [height, width, channel]
+            converted_image = np.transpose(image[cam_idx] * 255, (1, 2, 0)).astype(np.uint8)
+            obs["observation"]["image"][key] = converted_image
+            obs["observation"]["image"][f"{key}_mask"] = np.array(True)
+
+        add_image(0, "cam_high")
+        add_image(1, "cam_low")
+        add_image(2, "cam_left_wrist")
+        add_image(3, "cam_right_wrist")
+
+        return obs
 
     def _post_request(self, request: dict) -> dict[str, np.ndarray]:
         response = requests.post(f"{self._uri}/infer", data=pickle.dumps(request))
