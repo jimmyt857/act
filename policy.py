@@ -135,7 +135,7 @@ class PiPolicy:
         # 12: left arm gripper
         # 13: right arm gripper
         qpos = response["action/qpos"]
-        aloha_action = qpos[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]
+        aloha_action = qpos[[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
         return aloha_action
 
 
