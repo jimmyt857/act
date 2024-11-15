@@ -1,22 +1,19 @@
 import collections
 import os
 
-import IPython
-import matplotlib.pyplot as plt
-import numpy as np
+from constants import DT
+from constants import MASTER_GRIPPER_POSITION_NORMALIZE_FN
+from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
+from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
+from constants import PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
+from constants import START_ARM_POSE
+from constants import XML_DIR
 from dm_control import mujoco
 from dm_control.rl import control
 from dm_control.suite import base
-
-from constants import (
-    DT,
-    MASTER_GRIPPER_POSITION_NORMALIZE_FN,
-    PUPPET_GRIPPER_POSITION_NORMALIZE_FN,
-    PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN,
-    PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN,
-    START_ARM_POSE,
-    XML_DIR,
-)
+import IPython
+import matplotlib.pyplot as plt
+import numpy as np
 
 e = IPython.embed
 
@@ -82,12 +79,8 @@ class BimanualViperXTask(base.Task):
         normalized_left_gripper_action = action[6]
         normalized_right_gripper_action = action[7 + 6]
 
-        left_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(
-            normalized_left_gripper_action
-        )
-        right_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(
-            normalized_right_gripper_action
-        )
+        left_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_left_gripper_action)
+        right_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_right_gripper_action)
 
         full_left_gripper_action = [left_gripper_action, -left_gripper_action]
         full_right_gripper_action = [right_gripper_action, -right_gripper_action]
@@ -101,7 +94,6 @@ class BimanualViperXTask(base.Task):
             ]
         )
         super().before_step(env_action, physics)
-        return
 
     def initialize_episode(self, physics):
         """Sets the state of the environment at the start of each episode."""
@@ -116,9 +108,7 @@ class BimanualViperXTask(base.Task):
         right_arm_qpos = right_qpos_raw[:6]
         left_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(left_qpos_raw[6])]
         right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
-        return np.concatenate(
-            [left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos]
-        )
+        return np.concatenate([left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos])
 
     @staticmethod
     def get_qvel(physics):
@@ -129,9 +119,7 @@ class BimanualViperXTask(base.Task):
         right_arm_qvel = right_qvel_raw[:6]
         left_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(left_qvel_raw[6])]
         right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
-        return np.concatenate(
-            [left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel]
-        )
+        return np.concatenate([left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel])
 
     @staticmethod
     def get_env_state(physics):
@@ -143,12 +131,8 @@ class BimanualViperXTask(base.Task):
         obs["qvel"] = self.get_qvel(physics)
         obs["env_state"] = self.get_env_state(physics)
         obs["images"] = dict()
-        obs["images"]["top"] = physics.render(
-            height=self._render_height, width=self._render_width, camera_id="top"
-        )
-        obs["images"]["angle"] = physics.render(
-            height=self._render_height, width=self._render_width, camera_id="angle"
-        )
+        obs["images"]["top"] = physics.render(height=self._render_height, width=self._render_width, camera_id="top")
+        obs["images"]["angle"] = physics.render(height=self._render_height, width=self._render_width, camera_id="angle")
         obs["images"]["vis"] = physics.render(
             height=self._render_height,
             width=self._render_width,
@@ -280,15 +264,10 @@ class InsertionTask(BimanualViperXTask):
         if touch_left_gripper and touch_right_gripper:  # touch both
             reward = 1
         if (
-            touch_left_gripper
-            and touch_right_gripper
-            and (not peg_touch_table)
-            and (not socket_touch_table)
+            touch_left_gripper and touch_right_gripper and (not peg_touch_table) and (not socket_touch_table)
         ):  # grasp both
             reward = 2
-        if (
-            peg_touch_socket and (not peg_touch_table) and (not socket_touch_table)
-        ):  # peg and socket touching
+        if peg_touch_socket and (not peg_touch_table) and (not socket_touch_table):  # peg and socket touching
             reward = 3
         if pin_touched:  # successful insertion
             reward = 4

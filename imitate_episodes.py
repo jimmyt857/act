@@ -1,26 +1,26 @@
 import argparse
+from copy import deepcopy
 import os
 import pickle
-from copy import deepcopy
 
+from constants import DT
+from constants import PUPPET_GRIPPER_JOINT_OPEN
+from einops import rearrange
 import IPython
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-from einops import rearrange
-from tqdm import tqdm
-
-from constants import DT, PUPPET_GRIPPER_JOINT_OPEN
-from policy import ACTPolicy, CNNMLPPolicy, PiPolicy
+from policy import ACTPolicy
+from policy import CNNMLPPolicy
+from policy import PiPolicy
 from sim_env import BOX_POSE
-from utils import (  # robot functions  # helper functions
-    compute_dict_mean,
-    detach_dict,
-    load_data,  # data functions
-    sample_box_pose,
-    sample_insertion_pose,
-    set_seed,
-)
+import torch
+from tqdm import tqdm
+from utils import compute_dict_mean  # robot functions  # helper functions
+from utils import detach_dict  # robot functions  # helper functions
+from utils import load_data  # robot functions  # helper functions  # data functions
+from utils import sample_box_pose  # robot functions  # helper functions
+from utils import sample_insertion_pose  # robot functions  # helper functions
+from utils import set_seed  # robot functions  # helper functions
 from visualize_episodes import save_videos
 
 e = IPython.embed
@@ -79,15 +79,7 @@ def main(args):
             "nheads": nheads,
             "camera_names": camera_names,
         }
-    elif policy_class == _POLICY_CLASS_CNNMLP:
-        policy_config = {
-            "lr": args["lr"],
-            "lr_backbone": lr_backbone,
-            "backbone": backbone,
-            "num_queries": 1,
-            "camera_names": camera_names,
-        }
-    elif policy_class == _POLICY_CLASS_PI:
+    elif policy_class == _POLICY_CLASS_CNNMLP or policy_class == _POLICY_CLASS_PI:
         policy_config = {
             "lr": args["lr"],
             "lr_backbone": lr_backbone,
@@ -161,9 +153,7 @@ def make_policy(policy_class, policy_config):
 
 
 def make_optimizer(policy_class, policy):
-    if policy_class == _POLICY_CLASS_ACT:
-        optimizer = policy.configure_optimizers()
-    elif policy_class == _POLICY_CLASS_CNNMLP:
+    if policy_class == _POLICY_CLASS_ACT or policy_class == _POLICY_CLASS_CNNMLP:
         optimizer = policy.configure_optimizers()
     else:
         raise NotImplementedError
@@ -237,11 +227,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
         ### onscreen render
         if onscreen_render:
             ax = plt.subplot()
-            plt_img = ax.imshow(
-                env._physics.render(
-                    height=render_height, width=render_width, camera_id=onscreen_cam
-                )
-            )
+            plt_img = ax.imshow(env._physics.render(height=render_height, width=render_width, camera_id=onscreen_cam))
             plt.ion()
 
         ### evaluation loop
@@ -253,9 +239,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
             for t in range(max_timesteps):
                 ### update onscreen render and wait for DT
                 if onscreen_render:
-                    image = env._physics.render(
-                        height=render_height, width=render_width, camera_id=onscreen_cam
-                    )
+                    image = env._physics.render(height=render_height, width=render_width, camera_id=onscreen_cam)
                     plt_img.set_data(image)
                     plt.pause(DT)
 
@@ -265,9 +249,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
                     image_list.append(obs["images"])
                 else:
                     image_list.append({"main": obs["image"]})
-                curr_image = get_image(
-                    ts, config["camera_names"], use_gpu=policy_class != _POLICY_CLASS_PI
-                )
+                curr_image = get_image(ts, config["camera_names"], use_gpu=policy_class != _POLICY_CLASS_PI)
                 qpos_numpy = np.array(obs["qpos"])
 
                 ### query policy
@@ -288,7 +270,6 @@ def eval_bc(config, ckpt_name, save_episode=True):
                 [PUPPET_GRIPPER_JOINT_OPEN] * 2,
                 move_time=0.5,
             )  # open
-            pass
 
         rewards = np.array(rewards)
         episode_return = np.sum(rewards[rewards is not None])
@@ -338,9 +319,7 @@ def _make_policy_func(config, policy):
             query_frequency = 1
 
         if temporal_agg:
-            all_time_actions = torch.zeros(
-                [max_timesteps, max_timesteps + num_queries, state_dim]
-            ).cuda()
+            all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, state_dim]).cuda()
 
         def policy_func(qpos, curr_image, t):
             qpos = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
@@ -355,9 +334,7 @@ def _make_policy_func(config, policy):
                 exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                 exp_weights = exp_weights / exp_weights.sum()
                 exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
-                raw_action = (actions_for_curr_step * exp_weights).sum(
-                    dim=0, keepdim=True
-                )
+                raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
             else:
                 raw_action = all_actions[:, t % query_frequency]
             return raw_action.squeeze(0).cpu().numpy()
@@ -464,9 +441,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             optimizer.step()
             optimizer.zero_grad()
             train_history.append(detach_dict(forward_dict))
-        epoch_summary = compute_dict_mean(
-            train_history[(batch_idx + 1) * epoch : (batch_idx + 1) * (epoch + 1)]
-        )
+        epoch_summary = compute_dict_mean(train_history[(batch_idx + 1) * epoch : (batch_idx + 1) * (epoch + 1)])
         epoch_train_loss = epoch_summary["loss"]
         print(f"Train loss: {epoch_train_loss:.5f}")
         summary_string = ""
@@ -485,9 +460,7 @@ def train_bc(train_dataloader, val_dataloader, config):
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
     ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{best_epoch}_seed_{seed}.ckpt")
     torch.save(best_state_dict, ckpt_path)
-    print(
-        f"Training finished:\nSeed {seed}, val loss {min_val_loss:.6f} at epoch {best_epoch}"
-    )
+    print(f"Training finished:\nSeed {seed}, val loss {min_val_loss:.6f} at epoch {best_epoch}")
 
     # save training curves
     plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed)
@@ -526,9 +499,7 @@ if __name__ == "__main__":
     parser.add_argument("--onscreen_render", action="store_true")
     parser.add_argument("--render_height", action="store", type=int, default=480)
     parser.add_argument("--render_width", action="store", type=int, default=640)
-    parser.add_argument(
-        "--ckpt_dir", action="store", type=str, help="ckpt_dir", required=True
-    )
+    parser.add_argument("--ckpt_dir", action="store", type=str, help="ckpt_dir", required=True)
     parser.add_argument(
         "--policy_class",
         action="store",
@@ -536,28 +507,16 @@ if __name__ == "__main__":
         help="policy_class, capitalize",
         required=True,
     )
-    parser.add_argument(
-        "--task_name", action="store", type=str, help="task_name", required=True
-    )
-    parser.add_argument(
-        "--batch_size", action="store", type=int, help="batch_size", required=True
-    )
+    parser.add_argument("--task_name", action="store", type=str, help="task_name", required=True)
+    parser.add_argument("--batch_size", action="store", type=int, help="batch_size", required=True)
     parser.add_argument("--seed", action="store", type=int, help="seed", required=True)
-    parser.add_argument(
-        "--num_epochs", action="store", type=int, help="num_epochs", required=True
-    )
+    parser.add_argument("--num_epochs", action="store", type=int, help="num_epochs", required=True)
     parser.add_argument("--lr", action="store", type=float, help="lr", required=True)
 
     # for ACT
-    parser.add_argument(
-        "--kl_weight", action="store", type=int, help="KL Weight", required=False
-    )
-    parser.add_argument(
-        "--chunk_size", action="store", type=int, help="chunk_size", required=False
-    )
-    parser.add_argument(
-        "--hidden_dim", action="store", type=int, help="hidden_dim", required=False
-    )
+    parser.add_argument("--kl_weight", action="store", type=int, help="KL Weight", required=False)
+    parser.add_argument("--chunk_size", action="store", type=int, help="chunk_size", required=False)
+    parser.add_argument("--hidden_dim", action="store", type=int, help="hidden_dim", required=False)
     parser.add_argument(
         "--dim_feedforward",
         action="store",
