@@ -1,9 +1,0 @@
-port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_$ARM_SERIAL_ID-if00-port0
-
-groups:
-  arm:
-    torque_enable: false
-
-singles:
-  gripper:
-    torque_enable: false
