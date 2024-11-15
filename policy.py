@@ -118,7 +118,6 @@ class PiPolicy:
                     "cam_right_wrist_mask": np.array(True),
                 },
                 "qpos": qpos,
-                "raw_text": "pick up cube",
             },
         }
 
