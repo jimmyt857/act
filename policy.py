@@ -89,61 +89,20 @@ class PiPolicy:
                 time.sleep(5)
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
-        request = self._aloha_to_pi_request(qpos, image)
-        response = self._post_request(request)
-        return self._pi_response_to_aloha(response)
-
-    def _aloha_to_pi_request(self, qpos: np.ndarray, image: np.ndarray) -> dict:
-        # qpos is (14,) of type float:
-        # 0-5: left arm joint angles
-        # 6: left arm gripper
-        # 7-12: right arm joint angles
-        # 13: right arm gripper
-        #
-        # image is [cam_idx, channel, height, width] with values in [0, 1] of type float
-        # With real robot, cam_idx order is [cam_high, cam_low, cam_left_wrist, cam_right_wrist]
-        # With sim, cam_idx order is [cam_high].
-
-        # Convert to [left_arm_joint_angles, right_arm_joint_angles, left_arm_gripper, right_arm_gripper]
-        pi_qpos = qpos[[0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 6, 13]]
-
-        obs = {
-            "observation": {
-                "qpos": pi_qpos,
-                "image": {},
-            },
+        request = {
+            "qpos": qpos,
+            "image": image,
         }
 
-        def add_image(cam_idx: int, key: str) -> None:
-            if cam_idx >= image.shape[0]:
-                return
+        response = self._post_request(request)
 
-            # Convert to [height, width, channel]
-            converted_image = np.transpose(image[cam_idx] * 255, (1, 2, 0)).astype(np.uint8)
-            obs["observation"]["image"][key] = converted_image
-            obs["observation"]["image"][f"{key}_mask"] = np.array(True)
-
-        add_image(0, "cam_high")
-        add_image(1, "cam_low")
-        add_image(2, "cam_left_wrist")
-        add_image(3, "cam_right_wrist")
-
-        return obs
+        return response["qpos"]
 
     def _post_request(self, request: dict) -> dict[str, np.ndarray]:
         response = requests.post(f"{self._uri}/infer", data=pickle.dumps(request))
         if response.status_code != 200:
             raise Exception(response.text)
         return pickle.loads(response.content)
-
-    def _pi_response_to_aloha(self, response: dict[str, np.ndarray]) -> np.ndarray:
-        # response['action/qpos'] is (14,) of type float32
-        # 0-5: left arm joint angles
-        # 6-11: right arm joint angles
-        # 12: left arm gripper
-        # 13: right arm gripper
-        qpos = response["action/qpos"]
-        return qpos[[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
 
 
 def kl_divergence(mu, logvar):
