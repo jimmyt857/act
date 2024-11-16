@@ -104,9 +104,12 @@ class PiPolicy:
         # With real robot, cam_idx order is [cam_high, cam_low, cam_left_wrist, cam_right_wrist]
         # With sim, cam_idx order is [cam_high].
 
+        # Convert to [left_arm_joint_angles, right_arm_joint_angles, left_arm_gripper, right_arm_gripper]
+        pi_qpos = qpos[[0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 6, 13]]
+
         obs = {
             "observation": {
-                "qpos": qpos,
+                "qpos": pi_qpos,
                 "image": {},
             },
         }
@@ -140,8 +143,7 @@ class PiPolicy:
         # 12: left arm gripper
         # 13: right arm gripper
         qpos = response["action/qpos"]
-        aloha_action = qpos[[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
-        return aloha_action
+        return qpos[[0, 1, 2, 3, 4, 5, 12, 6, 7, 8, 9, 10, 11, 13]]
 
 
 def kl_divergence(mu, logvar):
